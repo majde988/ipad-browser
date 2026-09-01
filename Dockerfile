@@ -1,8 +1,10 @@
 FROM debian:bullseye-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
-# تثبيت متصفح Chromium، محرر الأكواد Geany (بديل Notepad++)، وأدوات النظام
+# تثبيت الأدوات، متصفح Chromium، محرر Geany، وحزم الخطوط العربية واللاتينية الكاملة
 RUN apt-get update && apt-get install -y \
     xvfb \
     fluxbox \
@@ -15,19 +17,23 @@ RUN apt-get update && apt-get install -y \
     procps \
     git \
     fonts-liberation \
+    fonts-kacst \
+    fonts-dejavu-core \
+    locales \
+    && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*
 
-# تحميل noVNC الكلاسيكية
+# تحميل noVNC الكلاسيكية ES5
 RUN rm -rf /usr/share/novnc && \
     git clone --branch v0.6.2 --depth 1 https://github.com/novnc/noVNC.git /usr/share/novnc
 
 RUN mkdir -p /root/.config/chromium /root/.fluxbox /var/log/supervisor
 
-# إعداد اختصار الكيبورد وقائمة سطح المكتب لفتح Notepad++ (Geany)
+# إعداد اختصار الكيبورد وقائمة سطح المكتب
 RUN echo 'Control Mod1 e :Exec geany' > /root/.fluxbox/keys && \
     echo '[begin] (Menu)\n[exec] (Notepad++ / Geany) {geany}\n[exec] (Chromium Browser) {chromium --no-sandbox}\n[separator]\n[restart] (Restart Desktop)\n[end]' > /root/.fluxbox/menu
 
-# حقن لوحة المفاتيح مع زر Notepad++ الجديد
+# حقن لوحة المفاتيح
 RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
 <style>
   #kbd-toggle { position: fixed; bottom: 10px; right: 10px; z-index: 99999; background: #007aff; color: #fff; border: none; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; }
@@ -41,7 +47,6 @@ RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
 </style>
 <button id="kbd-toggle" onclick="toggleKbd()">⌨️ الكلافي</button>
 <div id="virtual-keyboard">
-  <!-- سطر البرامج والاختصارات -->
   <div class="kbd-row">
     <button class="k-btn k-green" onclick="sendCombo([0xffe3, 0xffe9, 0x0065])">📝 Notepad++</button>
     <button class="k-btn k-action" onclick="sendCombo([0xffe3, 0x0074])">+ Tab</button>
@@ -102,37 +107,12 @@ RUN sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/nov
     sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc_auto.html
 
 # إعداد السيرفور
-RUN cat << 'EOF' > /etc/supervisor/conf.d/supervisord.conf
-[supervisord]
-nodaemon=true
-
-[program:xvfb]
-command=Xvfb :0 -screen 0 1024x768x16
-priority=10
-autorestart=true
-
-[program:fluxbox]
-command=fluxbox
-environment=DISPLAY=":0"
-priority=20
-autorestart=true
-
-[program:x11vnc]
-command=x11vnc -display :0 -nopw -forever -shared -rfbport 5900 -noxdamage -nowf -wait 30 -defer 30
-priority=30
-autorestart=true
-
-[program:websockify]
-command=websockify --web /usr/share/novnc 10000 localhost:5900
-priority=40
-autorestart=true
-
-[program:chromium]
-command=chromium --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-smooth-scrolling --disable-composited-antialiasing --renderer-process-limit=2 --window-size=1024,768 --start-maximized https://duckduckgo.com
-environment=DISPLAY=":0"
-priority=50
-autorestart=true
-EOF
+RUN echo '[supervisord]\nnodaemon=true\n\n\
+[program:xvfb]\ncommand=Xvfb :0 -screen 0 1024x768x16\nautorestart=true\n\n\
+[program:fluxbox]\ncommand=fluxbox\nenvironment=DISPLAY=":0"\nautorestart=true\n\n\
+[program:x11vnc]\ncommand=x11vnc -display :0 -nopw -forever -shared -rfbport 5900 -noxdamage -nowf -wait 30 -defer 30\nautorestart=true\n\n\
+[program:websockify]\ncommand=websockify --web /usr/share/novnc 10000 localhost:5900\nautorestart=true\n\n\
+[program:chromium]\ncommand=chromium --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-smooth-scrolling --disable-composited-antialiasing --renderer-process-limit=2 --window-size=1024,768 --start-maximized https://duckduckgo.com\nenvironment=DISPLAY=":0"\nautorestart=true\n' > /etc/supervisor/conf.d/supervisord.conf
 
 EXPOSE 10000
 
