@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
-# 1. تثبيت الحزم الأساسية: Chromium، Geany، مدير الملفات، التيرمينال، خادم Nginx، والخطوط العربية
+# تثبيت الحزم الأساسية
 RUN apt-get update && apt-get install -y \
     xvfb \
     fluxbox \
@@ -27,14 +27,13 @@ RUN apt-get update && apt-get install -y \
     && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. تحميل نسخة noVNC الكلاسيكية ES5 المتوافقة تماماً مع iOS 9
+# تحميل noVNC الكلاسيكية المتوافقة مع iOS 9
 RUN rm -rf /usr/share/novnc && \
     git clone --branch v0.6.2 --depth 1 https://github.com/novnc/noVNC.git /usr/share/novnc
 
-# 3. إنشاء مجلدات العمل وسطح المكتب والتنزيلات
-RUN mkdir -p /root/Desktop /root/Downloads /tmp/chromium-cache /root/.config/chromium /root/.fluxbox /var/log/supervisor
+RUN mkdir -p /root/Desktop /root/Downloads /tmp/chromium-cache /root/.config/chromium /root/.fluxbox /var/log/supervisor /var/run
 
-# 4. خادم استقبال الملفات المرفوعة من الآيباد وحفظها فوق سطح المكتب
+# سكريبت استقبال الملفات المرفوعة من الآيباد
 RUN cat << 'EOF' > /root/upload_server.py
 import http.server
 import socketserver
@@ -72,7 +71,7 @@ if __name__ == '__main__':
     server.serve_forever()
 EOF
 
-# 5. إعداد Nginx لإدارة كل الخدمات عبر منفذ Render الوحيد (10000)
+# ضبط Nginx الموحد لمنفذ 10000
 RUN cat << 'EOF' > /etc/nginx/nginx.conf
 user root;
 worker_processes 1;
@@ -108,23 +107,24 @@ http {
 }
 EOF
 
-# 6. إعداد اختصارات سطح المكتب والبرامج
+# ضبط اختصارات سطح المكتب
 RUN echo 'Control Mod1 e :Exec geany\n\
 Control Mod1 t :Exec lxterminal\n\
 Control Mod1 f :Exec pcmanfm /root/Desktop\n\
-Control Mod1 b :Exec chromium --no-sandbox "https://www.google.com/search?q=&udm=50"\n\
+Control Mod1 b :Exec chromium --no-sandbox "https://www.google.com"\n\
 Control Mod1 d :ShowDesktop\n\
 Mod1 F4 :Close' > /root/.fluxbox/keys && \
     echo '[begin] (Menu)\n\
 [exec] (Notepad++ / Geany) {geany}\n\
 [exec] (File Manager) {pcmanfm /root/Desktop}\n\
 [exec] (Terminal) {lxterminal}\n\
-[exec] (Google AI Browser) {chromium --no-sandbox "https://www.google.com/search?q=&udm=50"}\n\
+[exec] (Google) {chromium --no-sandbox "https://www.google.com"}\n\
+[exec] (Startpage - Google No Captcha) {chromium --no-sandbox "https://www.startpage.com"}\n\
 [separator]\n\
 [restart] (Restart Desktop)\n\
 [end]' > /root/.fluxbox/menu
 
-# 7. حقن لوحة التحكم وشريط الأدوات الاحترافي المتوافق 100% مع iOS 9 (Pure ES5)
+# حقن لوحة التحكم وشريط الأدوات الاحترافي
 RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
 <style>
   #kbd-toggle { position: fixed; bottom: 8px; right: 8px; z-index: 99999; background: #007aff; color: #fff; border: none; padding: 7px 13px; border-radius: 20px; font-weight: bold; font-size: 13px; box-shadow: 0 4px 10px rgba(0,0,0,0.6); cursor: pointer; }
@@ -154,7 +154,7 @@ RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
   </div>
   <!-- سطر التطبيقات المباشرة -->
   <div class="kbd-row">
-    <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0062])">🌐 Google AI</button>
+    <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0062])">🌐 Google</button>
     <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0066])">📁 سطح المكتب</button>
     <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0074])">💻 التيرمينال</button>
     <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0065])">📝 Notepad++</button>
@@ -233,10 +233,17 @@ EOF
 RUN sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc.html && \
     sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc_auto.html
 
-# 8. إعداد Supervisord: نظام مكافحة الكابتشا + استقرار تام بلا كراش + حفظ الذاكرة في الـ SSD
+# إعداد Supervisord المنقح (حذفنا كل التحذيرات الأمنية ورتبنا الإقلاع)
 RUN cat << 'EOF' > /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
+user=root
+logfile=/var/log/supervisor/supervisord.log
+pidfile=/var/run/supervisord.pid
+
+[unix_http_server]
+file=/var/run/supervisor.sock
+chmod=0700
 
 [program:xvfb]
 command=Xvfb :0 -screen 0 1024x768x16
@@ -270,7 +277,7 @@ priority=40
 autorestart=true
 
 [program:chromium]
-command=chromium --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-blink-features=AutomationControlled --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" --lang=ar,en-US,en --disk-cache-dir=/tmp/chromium-cache --disk-cache-size=314572800 --js-flags="--max-old-space-size=150 --optimize-for-size" --renderer-process-limit=1 --enable-features=HighEfficiencyModeAvailable,PageDiscarding --enable-aggressive-tab-discard --disable-smooth-scrolling --disable-composited-antialiasing --window-size=1024,768 --start-maximized "https://www.google.com/search?q=&udm=50"
+command=chromium --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-blink-features=AutomationControlled --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" --lang=ar,en-US,en --disk-cache-dir=/tmp/chromium-cache --disk-cache-size=314572800 --js-flags="--max-old-space-size=150 --optimize-for-size" --renderer-process-limit=1 --enable-features=HighEfficiencyModeAvailable,PageDiscarding --enable-aggressive-tab-discard --disable-smooth-scrolling --disable-composited-antialiasing --window-size=1024,768 --start-maximized "https://www.google.com"
 environment=DISPLAY=":0"
 priority=50
 autorestart=true
@@ -278,4 +285,4 @@ EOF
 
 EXPOSE 10000
 
-CMD ["/usr/bin/supervisord"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
