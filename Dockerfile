@@ -4,13 +4,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
-# 1. تثبيت الحزم الأساسية والخطوط العربية
+# 1. تثبيت Firefox ESR (سلاح كسر البوتات)، محرر Geany، مدير الملفات، التيرمينال، خادم Nginx، والخطوط
 RUN apt-get update && apt-get install -y \
     xvfb \
     fluxbox \
     x11vnc \
     websockify \
-    chromium \
+    firefox-esr \
     geany \
     geany-plugins \
     pcmanfm \
@@ -27,62 +27,39 @@ RUN apt-get update && apt-get install -y \
     && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. تحميل noVNC الكلاسيكية المتوافقة مع iOS 9
+# 2. تحميل noVNC الكلاسيكية ES5 المتوافقة مع iOS 9
 RUN rm -rf /usr/share/novnc && \
     git clone --branch v0.6.2 --depth 1 https://github.com/novnc/noVNC.git /usr/share/novnc
 
-# 3. إنشاء المجلدات
-RUN mkdir -p /root/Desktop /root/Downloads /tmp/chromium-cache /root/.config/chromium /root/.fluxbox /var/log/supervisor /var/run /root/stealth_ext
+# 3. إنشاء المجلدات ومجلد بروفايل فايرفوكس المصفح
+RUN mkdir -p /root/Desktop /root/Downloads /tmp/firefox-cache /root/.mozilla/firefox/mainprofile /root/.fluxbox /var/log/supervisor /var/run
 
-# 4. بناء إضافة التخفي ومكافحة البوتات (Stealth Extension)
-RUN cat << 'EOF' > /root/stealth_ext/manifest.json
-{
-  "manifest_version": 2,
-  "name": "Stealth Shield",
-  "version": "1.0",
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["stealth.js"],
-      "run_at": "document_start",
-      "all_frames": true
-    }
-  ]
-}
+# 4. بناء إعدادات التخفي الأصلية لـ Firefox (Native user.js Anti-Detect)
+RUN cat << 'EOF' > /root/.mozilla/firefox/mainprofile/user.js
+// تزوير كارت الشاشة لقتل كذبة llvmpipe أمام Cloudflare Turnstile
+user_pref("webgl.override-renderer", "ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0)");
+user_pref("webgl.override-vendor", "Google Inc. (Intel)");
+user_pref("webgl.disabled", false);
+
+// محو صفة الروبوت نهائياً
+user_pref("dom.webdriver.enabled", false);
+user_pref("media.navigator.enabled", false);
+
+// بصمة حاسوب Windows 11 منزلي حقيقي
+user_pref("general.useragent.override", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0");
+user_pref("intl.accept_languages", "ar,en-US,en");
+
+// تقليل استهلاك الرام إلى الحد الأدنى لتلائم 512MB RAM
+user_pref("dom.ipc.processCount", 1);
+user_pref("browser.tabs.remote.autostart", false);
+user_pref("browser.cache.memory.enable", false);
+user_pref("browser.cache.disk.enable", true);
+user_pref("browser.cache.disk.parent_directory", "/tmp/firefox-cache");
+user_pref("browser.sessionstore.max_tabs_undo", 2);
+user_pref("browser.startup.homepage", "https://www.google.com");
 EOF
 
-RUN cat << 'EOF' > /root/stealth_ext/stealth.js
-var injectCode = '(' + function() {
-    // 1. إخفاء صفة الروبوت
-    Object.defineProperty(navigator, 'webdriver', { get: function() { return undefined; } });
-
-    // 2. تزوير عدد الأنوية والرام
-    Object.defineProperty(navigator, 'hardwareConcurrency', { get: function() { return 8; } });
-    Object.defineProperty(navigator, 'deviceMemory', { get: function() { return 8; } });
-
-    // 3. تزوير كارت الشاشة وقتل فضيحة llvmpipe أمام Cloudflare
-    var hookWebGL = function(target) {
-        if (!target) return;
-        var originalGetParameter = target.prototype.getParameter;
-        target.prototype.getParameter = function(param) {
-            if (param === 0x9245) return "Google Inc. (Intel)";
-            if (param === 0x9246) return "ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0)";
-            if (param === 0x1F00) return "WebKit";
-            if (param === 0x1F01) return "WebKit WebGL";
-            return originalGetParameter.apply(this, arguments);
-        };
-    };
-    hookWebGL(window.WebGLRenderingContext);
-    hookWebGL(window.WebGL2RenderingContext);
-} + ')();';
-
-var script = document.createElement('script');
-script.textContent = injectCode;
-(document.head || document.documentElement).appendChild(script);
-script.remove();
-EOF
-
-# 5. سكريبت استقبال الملفات من الآيباد
+# 5. سكريبت استقبال الملفات من الآيباد وحفظها على سطح المكتب
 RUN cat << 'EOF' > /root/upload_server.py
 import http.server
 import socketserver
@@ -120,7 +97,7 @@ if __name__ == '__main__':
     server.serve_forever()
 EOF
 
-# 6. ضبط Nginx الموحد لمنفذ 10000
+# 6. ضبط Nginx الموحد لمنفذ Render الوحيد (10000)
 RUN cat << 'EOF' > /etc/nginx/nginx.conf
 user root;
 worker_processes 1;
@@ -156,23 +133,23 @@ http {
 }
 EOF
 
-# 7. ضبط اختصارات سطح المكتب
+# 7. ضبط اختصارات سطح المكتب والبرامج
 RUN echo 'Control Mod1 e :Exec geany\n\
 Control Mod1 t :Exec lxterminal\n\
 Control Mod1 f :Exec pcmanfm /root/Desktop\n\
-Control Mod1 b :Exec chromium --no-sandbox "https://www.google.com"\n\
+Control Mod1 b :Exec firefox-esr -profile /root/.mozilla/firefox/mainprofile "https://www.google.com"\n\
 Control Mod1 d :ShowDesktop\n\
 Mod1 F4 :Close' > /root/.fluxbox/keys && \
     echo '[begin] (Menu)\n\
 [exec] (Notepad++ / Geany) {geany}\n\
 [exec] (File Manager) {pcmanfm /root/Desktop}\n\
 [exec] (Terminal) {lxterminal}\n\
-[exec] (Google) {chromium --no-sandbox "https://www.google.com"}\n\
+[exec] (Firefox Stealth Browser) {firefox-esr -profile /root/.mozilla/firefox/mainprofile "https://www.google.com"}\n\
 [separator]\n\
 [restart] (Restart Desktop)\n\
 [end]' > /root/.fluxbox/menu
 
-# 8. حقن لوحة التحكم المتقدمة (Pure ES5 متوافق 100% مع iOS 9)
+# 8. حقن لوحة التحكم ومحاكي المسار البشري المنحني (Human Bézier Curve Clicker)
 RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
 <style>
   #kbd-toggle { position: fixed; bottom: 8px; right: 8px; z-index: 99999; background: #007aff; color: #fff; border: none; padding: 7px 13px; border-radius: 20px; font-weight: bold; font-size: 13px; box-shadow: 0 4px 10px rgba(0,0,0,0.6); cursor: pointer; }
@@ -180,6 +157,7 @@ RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
   .kbd-row { display: flex; justify-content: center; gap: 3px; overflow-x: auto; padding-bottom: 1px; }
   .k-btn { background: #2c2c2c; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 5px 7px; font-size: 12px; font-family: monospace; font-weight: bold; cursor: pointer; min-width: 28px; white-space: nowrap; }
   .k-btn:active { background: #007aff; border-color: #fff; }
+  .k-bot { background: #6c3483; border-color: #8e44ad; color: #f5eef8; }
   .k-app { background: #1a5276; border-color: #2980b9; color: #5dade2; }
   .k-action { background: #005bb5; border-color: #007aff; }
   .k-green { background: #1e8449; border-color: #27ae60; color: #a9dfbf; }
@@ -191,22 +169,24 @@ RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
 <button id="kbd-toggle" onclick="toggleKbd()">🎛️ مركز التحكم</button>
 
 <div id="virtual-keyboard">
+  <!-- سطر مكافحة البوتات وتبادل الملفات والتمرير -->
   <div class="kbd-row">
+    <button class="k-btn k-bot" id="humanBtn" onclick="toggleHumanMode()">🖱️ نقر بشري (Anti-Bot): OFF</button>
     <button class="k-btn k-green" onclick="document.getElementById('fileUploader').click()">📤 رفع ملف (AirDrop)</button>
     <button class="k-btn k-green" onclick="window.open('/downloads/', '_blank')">📥 التنزيلات</button>
     <button class="k-btn k-action" onclick="pressK(0xff55)">📜 Scroll ⬆️</button>
     <button class="k-btn k-action" onclick="pressK(0xff56)">📜 Scroll ⬇️</button>
-    <button class="k-btn k-spec" onclick="sendCombo([0xffe3, 0x003d])">🔍 Zoom +</button>
-    <button class="k-btn k-spec" onclick="sendCombo([0xffe3, 0x002d])">🔍 Zoom -</button>
   </div>
+  <!-- سطر التطبيقات المباشرة -->
   <div class="kbd-row">
-    <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0062])">🌐 Google</button>
+    <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0062])">🦊 Firefox Stealth</button>
     <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0066])">📁 سطح المكتب</button>
     <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0074])">💻 التيرمينال</button>
     <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0065])">📝 Notepad++</button>
     <button class="k-btn k-spec" onclick="sendCombo([0xffe3, 0xffe9, 0x0064])">🪟 إخفاء الكل</button>
     <button class="k-btn k-red" onclick="sendCombo([0xffe9, 0xffc1])">❌ غلق نافذة</button>
   </div>
+  <!-- سطر اختصارات التحرير والتصفح -->
   <div class="kbd-row">
     <button class="k-btn k-green" onclick="sendCombo([0xffe3, 0x0073])">💾 Save</button>
     <button class="k-btn k-action" onclick="sendCombo([0xffe3, 0x0074])">+ Tab</button>
@@ -215,8 +195,8 @@ RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
     <button class="k-btn k-action" onclick="sendCombo([0xffe3, 0x006c])">🔍 URL</button>
     <button class="k-btn k-action" onclick="sendCombo([0xffe3, 0x0063])">📋 Copy</button>
     <button class="k-btn k-action" onclick="sendCombo([0xffe3, 0x0076])">📌 Paste</button>
-    <button class="k-btn k-action" onclick="sendCombo([0xffe3, 0x0061])">Select All</button>
   </div>
+  <!-- سطر أزرار الكيبورد الكاملة -->
   <div class="kbd-row">
     <button class="k-btn k-spec" onclick="pressK(0xff1b)">Esc</button>
     <button class="k-btn k-spec" onclick="pressK(0xff09)">Tab</button>
@@ -233,9 +213,18 @@ RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
 </div>
 
 <script>
+  var humanMode = false;
+  var lastX = 512, lastY = 384;
+
   function toggleKbd() {
     var k = document.getElementById('virtual-keyboard');
     k.style.display = (k.style.display === 'none') ? 'flex' : 'none';
+  }
+  function toggleHumanMode() {
+    humanMode = !humanMode;
+    var btn = document.getElementById('humanBtn');
+    btn.innerText = humanMode ? '🖱️ نقر بشري (Anti-Bot): ON' : '🖱️ نقر بشري (Anti-Bot): OFF';
+    btn.style.background = humanMode ? '#28a745' : '#6c3483';
   }
   function pressK(keysym) {
     if (window.UI && window.UI.rfb) {
@@ -255,6 +244,49 @@ RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
       }, 70);
     }
   }
+  // محاكاة حركة الفارة المنحنية (Bézier Curve) لتخطي فحص السلوك البشري
+  function humanMoveAndClick(targetX, targetY) {
+    if (!window.UI || !window.UI.rfb) return;
+    var rfb = window.UI.rfb;
+    var startX = lastX, startY = lastY;
+    var steps = 10, cur = 0;
+    var midX = (startX + targetX) / 2 + (Math.random() * 60 - 30);
+    var midY = (startY + targetY) / 2 + (Math.random() * 60 - 30);
+
+    var timer = setInterval(function() {
+      cur++;
+      var t = cur / steps;
+      var x = Math.round((1 - t) * (1 - t) * startX + 2 * (1 - t) * t * midX + t * t * targetX);
+      var y = Math.round((1 - t) * (1 - t) * startY + 2 * (1 - t) * t * midY + t * t * targetY);
+      rfb.sendPointerEvent(x, y, 0);
+
+      if (cur >= steps) {
+        clearInterval(timer);
+        lastX = targetX;
+        lastY = targetY;
+        rfb.sendPointerEvent(targetX, targetY, 1);
+        setTimeout(function() {
+          rfb.sendPointerEvent(targetX, targetY, 0);
+        }, 80 + Math.floor(Math.random() * 40));
+      }
+    }, 15);
+  }
+  // التقاط النقرة وتحويلها لمسار بشري إذا كان الوضع مفعلاً
+  document.addEventListener('click', function(e) {
+    if (humanMode && window.UI && window.UI.rfb) {
+      var canvas = document.getElementsByTagName('canvas')[0];
+      if (canvas && e.target === canvas) {
+        e.stopPropagation();
+        var rect = canvas.getBoundingClientRect();
+        var scaleX = canvas.width / rect.width;
+        var scaleY = canvas.height / rect.height;
+        var x = Math.round((e.clientX - rect.left) * scaleX);
+        var y = Math.round((e.clientY - rect.top) * scaleY);
+        humanMoveAndClick(x, y);
+      }
+    }
+  }, true);
+
   function handleFileUpload(input) {
     if (input.files.length === 0) return;
     var file = input.files[0];
@@ -277,7 +309,7 @@ EOF
 RUN sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc.html && \
     sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc_auto.html
 
-# 9. تشغيل Supervisord: دمج إضافة التخفي وتفريغ الذاكرة في الـ SSD
+# 9. تشغيل Supervisord: تشغيل Firefox المصفح بدون علامات الأتمتة المشبوهة
 RUN cat << 'EOF' > /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
@@ -320,9 +352,9 @@ command=nginx -g "daemon off;"
 priority=40
 autorestart=true
 
-[program:chromium]
-command=chromium --no-sandbox --disable-gpu --disable-dev-shm-usage --load-extension=/root/stealth_ext --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" --lang=ar,en-US,en --disk-cache-dir=/tmp/chromium-cache --disk-cache-size=314572800 --js-flags="--max-old-space-size=150 --optimize-for-size" --renderer-process-limit=1 --enable-features=HighEfficiencyModeAvailable,PageDiscarding --enable-aggressive-tab-discard --disable-smooth-scrolling --disable-composited-antialiasing --window-size=1024,768 --start-maximized "https://www.google.com"
-environment=DISPLAY=":0"
+[program:firefox]
+command=firefox-esr -profile /root/.mozilla/firefox/mainprofile --width 1024 --height 768 "https://www.google.com"
+environment=DISPLAY=":0",HOME="/root"
 priority=50
 autorestart=true
 EOF
