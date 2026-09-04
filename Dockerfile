@@ -5,7 +5,7 @@ ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 ENV MOZ_DISABLE_CONTENT_SANDBOX=1
 
-# 1. تثبيت الحزم الأساسية، الخطوط، وأداة ضبط الخلفية feh
+# 1. تثبيت الحزم
 RUN apt-get update && apt-get install -y \
     xvfb \
     fluxbox \
@@ -30,30 +30,27 @@ RUN apt-get update && apt-get install -y \
     && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. تحميل noVNC v0.6.2 بـ curl وفك الضغط مباشرة لتفادي خطأ GitHub rate-limit
+# 2. تحميل noVNC v0.6.2 بـ curl
 RUN rm -rf /usr/share/novnc && mkdir -p /usr/share/novnc && \
     curl -sL https://github.com/novnc/noVNC/archive/refs/tags/v0.6.2.tar.gz | tar -xz --strip-components=1 -C /usr/share/novnc
 
-# 3. إنشاء المجلدات وتحميل خلفية ويندوز 10 الزرقاء الرسمية
+# 3. المجلدات والخلفية
 RUN mkdir -p /root/Desktop /root/Downloads /tmp/firefox-cache /root/.mozilla/firefox/mainprofile /root/.fluxbox /var/log/supervisor /var/run && \
     curl -sL "https://wallpaperaccess.com/full/764827.jpg" -o /root/wallpaper.jpg || \
     curl -sL "https://i.imgur.com/S9Mj5u9.jpg" -o /root/wallpaper.jpg || true
 
-# 4. إعدادات Firefox: تفعيل الدارك مود التام + حماية من الكراش + تزوير العتاد ضد الكابتشا
+# 4. إعدادات Firefox فائقة الخفة مع تعطيل الاقتراحات المسببة للضغط
 RUN cat << 'EOF' > /root/.mozilla/firefox/mainprofile/user.js
-// تفعيل الدارك مود التام (الواجهة + صفحات الويب)
 user_pref("ui.systemUsesDarkTheme", 1);
 user_pref("layout.css.prefers-color-scheme.content-override", 0);
 user_pref("browser.theme.content-theme", 2);
 user_pref("browser.theme.toolbar-theme", 2);
 user_pref("extensions.activeThemeID", "firefox-compact-dark@mozilla.org");
 
-// حل مشكلة كراش التابات في دوكر
 user_pref("security.sandbox.content.level", 0);
 user_pref("gfx.webrender.software", true);
 user_pref("layers.acceleration.disabled", true);
 
-// إيقاف اقتراحات شريط البحث لمنع تعليق 1006
 user_pref("browser.search.suggest.enabled", false);
 user_pref("browser.urlbar.suggest.searches", false);
 user_pref("browser.urlbar.suggest.history", false);
@@ -61,18 +58,15 @@ user_pref("browser.urlbar.suggest.bookmark", false);
 user_pref("browser.urlbar.suggest.openpage", false);
 user_pref("browser.urlbar.autoFill", false);
 
-// تزوير كارت الشاشة لكسر حماية Cloudflare
 user_pref("webgl.override-renderer", "ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0)");
 user_pref("webgl.override-vendor", "Google Inc. (Intel)");
 user_pref("webgl.disabled", false);
 
-// محو صفة الروبوت
 user_pref("dom.webdriver.enabled", false);
 user_pref("media.navigator.enabled", false);
 user_pref("general.useragent.override", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0");
 user_pref("intl.accept_languages", "ar,en-US,en");
 
-// تقليل استهلاك الرام
 user_pref("dom.ipc.processCount", 1);
 user_pref("browser.cache.memory.enable", false);
 user_pref("browser.cache.disk.enable", true);
@@ -119,7 +113,7 @@ if __name__ == '__main__':
     server.serve_forever()
 EOF
 
-# 6. ضبط Nginx الموحد لمنفذ 10000
+# 6. ضبط Nginx
 RUN cat << 'EOF' > /etc/nginx/nginx.conf
 user root;
 worker_processes 1;
@@ -326,12 +320,13 @@ EOF
 RUN sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc.html && \
     sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc_auto.html
 
-# 9. تشغيل Supervisord: تشغيل الشاشة، خلفية Windows 10، وFirefox Dark
+# 9. تشغيل Supervisord: بث كل السجلات الحية لـ Render (stdout/stderr) + إصلاح كراش الحافظة في x11vnc
 RUN cat << 'EOF' > /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
 user=root
-logfile=/var/log/supervisor/supervisord.log
+logfile=/dev/stdout
+logfile_maxbytes=0
 pidfile=/var/run/supervisord.pid
 
 [unix_http_server]
@@ -342,44 +337,76 @@ chmod=0700
 command=Xvfb :0 -screen 0 1024x768x16
 priority=10
 autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
 
 [program:wallpaper]
 command=sh -c "sleep 2 && feh --bg-scale /root/wallpaper.jpg"
 priority=15
 autorestart=false
 startretries=1
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
 
 [program:fluxbox]
 command=fluxbox
 environment=DISPLAY=":0"
 priority=20
 autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
 
 [program:x11vnc]
-command=x11vnc -display :0 -nopw -forever -shared -rfbport 5900 -wait 20 -defer 20
+command=x11vnc -display :0 -nopw -forever -shared -rfbport 5900 -noclipboard -nosel -wait 20 -defer 20
 priority=30
 autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
 
 [program:websockify]
 command=websockify --heartbeat 15 6080 localhost:5900
 priority=35
 autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
 
 [program:upload_server]
 command=python3 /root/upload_server.py
 priority=35
 autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
 
 [program:nginx]
 command=nginx -g "daemon off;"
 priority=40
 autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
 
 [program:firefox]
 command=firefox-esr -profile /root/.mozilla/firefox/mainprofile --width 1024 --height 768 "https://www.google.com"
 environment=DISPLAY=":0",HOME="/root",MOZ_DISABLE_CONTENT_SANDBOX="1"
 priority=50
 autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
 EOF
 
 EXPOSE 10000
