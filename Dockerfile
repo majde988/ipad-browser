@@ -3,23 +3,24 @@ FROM debian:bullseye-slim
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
-# تعطيل كل أدوات الفحص والساندبوكس المسببة لتجميد المتصفح
-ENV MOZ_DISABLE_CONTENT_SANDBOX=1
-ENV MOZ_DISABLE_GMP_SANDBOX=1
-ENV MOZ_DISABLE_RDD_SANDBOX=1
-ENV MOZ_DISABLE_GLXTEST=1
 
-# 1. تثبيت الحزم الأساسية
+# 1. تثبيت المستودع الرسمي لـ Brave Browser
+RUN apt-get update && apt-get install -y curl gnupg && \
+    curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" > /etc/apt/sources.list.d/brave-browser-release.list
+
+# 2. تثبيت الحزم الأساسية: Brave Browser، محرر Geany، مدير الملفات، التيرمينال، أدوات النظام والخطوط
 RUN apt-get update && apt-get install -y \
     xvfb \
     fluxbox \
     x11vnc \
     websockify \
-    firefox-esr \
+    brave-browser \
     geany \
     geany-plugins \
     pcmanfm \
     lxterminal \
+    dbus-x11 \
     supervisor \
     procps \
     feh \
@@ -28,71 +29,32 @@ RUN apt-get update && apt-get install -y \
     fonts-dejavu-core \
     locales \
     python3 \
-    curl \
     tar \
     && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. تحميل noVNC v0.6.2 المتوافقة مع iOS 9
+# 3. تحميل noVNC v0.6.2 المتوافقة مع iOS 9
 RUN rm -rf /usr/share/novnc && mkdir -p /usr/share/novnc && \
     curl -sL https://github.com/novnc/noVNC/archive/refs/tags/v0.6.2.tar.gz | tar -xz --strip-components=1 -C /usr/share/novnc
 
-# 3. المجلدات والخلفية وربط مجلد التنزيلات مباشرة بـ noVNC
-RUN mkdir -p /root/Desktop /root/Downloads /tmp/firefox-cache /root/.mozilla/firefox/mainprofile /root/.fluxbox /var/log/supervisor /var/run && \
+# 4. المجلدات والخلفية وربط التنزيلات بـ noVNC
+RUN mkdir -p /root/Desktop /root/Downloads /tmp/brave-cache /root/.config/BraveSoftware /root/.fluxbox /var/log/supervisor /var/run && \
     ln -s /root/Downloads /usr/share/novnc/downloads && \
     curl -sL "https://wallpaperaccess.com/full/764827.jpg" -o /root/wallpaper.jpg || \
     curl -sL "https://i.imgur.com/S9Mj5u9.jpg" -o /root/wallpaper.jpg || true
 
-# 4. إعدادات Firefox: إيقاف اقتراحات شريط البحث وتثبيت الأداء
-RUN cat << 'EOF' > /root/.mozilla/firefox/mainprofile/user.js
-user_pref("ui.systemUsesDarkTheme", 1);
-user_pref("layout.css.prefers-color-scheme.content-override", 0);
-user_pref("browser.theme.content-theme", 2);
-user_pref("browser.theme.toolbar-theme", 2);
-user_pref("extensions.activeThemeID", "firefox-compact-dark@mozilla.org");
-
-user_pref("security.sandbox.content.level", 0);
-user_pref("security.sandbox.rdd.level", 0);
-user_pref("security.sandbox.socket.process.level", 0);
-user_pref("gfx.webrender.software", true);
-user_pref("layers.acceleration.disabled", true);
-
-user_pref("browser.search.suggest.enabled", false);
-user_pref("browser.urlbar.suggest.searches", false);
-user_pref("browser.urlbar.suggest.history", false);
-user_pref("browser.urlbar.suggest.bookmark", false);
-user_pref("browser.urlbar.suggest.openpage", false);
-user_pref("browser.urlbar.autoFill", false);
-
-user_pref("webgl.override-renderer", "ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0)");
-user_pref("webgl.override-vendor", "Google Inc. (Intel)");
-user_pref("webgl.disabled", false);
-
-user_pref("dom.webdriver.enabled", false);
-user_pref("media.navigator.enabled", false);
-user_pref("general.useragent.override", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0");
-user_pref("intl.accept_languages", "ar,en-US,en");
-
-user_pref("dom.ipc.processCount", 1);
-user_pref("browser.cache.memory.enable", false);
-user_pref("browser.cache.disk.enable", true);
-user_pref("browser.cache.disk.parent_directory", "/tmp/firefox-cache");
-user_pref("browser.sessionstore.max_tabs_undo", 1);
-user_pref("browser.startup.homepage", "https://www.google.com");
-EOF
-
-# 5. اختصارات سطح المكتب
+# 5. اختصارات سطح المكتب لـ Brave والأدوات
 RUN echo 'Control Mod1 e :Exec geany\n\
 Control Mod1 t :Exec lxterminal\n\
 Control Mod1 f :Exec pcmanfm /root/Desktop\n\
-Control Mod1 b :Exec firefox-esr -profile /root/.mozilla/firefox/mainprofile "https://www.google.com"\n\
+Control Mod1 b :Exec brave-browser --no-sandbox "https://www.google.com"\n\
 Control Mod1 d :ShowDesktop\n\
 Mod1 F4 :Close' > /root/.fluxbox/keys && \
     echo '[begin] (Menu)\n\
 [exec] (Notepad++ / Geany) {geany}\n\
 [exec] (File Manager) {pcmanfm /root/Desktop}\n\
 [exec] (Terminal) {lxterminal}\n\
-[exec] (Firefox Dark) {firefox-esr -profile /root/.mozilla/firefox/mainprofile "https://www.google.com"}\n\
+[exec] (Brave Shields Browser) {brave-browser --no-sandbox "https://www.google.com"}\n\
 [separator]\n\
 [restart] (Restart Desktop)\n\
 [end]' > /root/.fluxbox/menu
@@ -106,6 +68,7 @@ RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
   .k-btn { background: #2c2c2c; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 5px 7px; font-size: 12px; font-family: monospace; font-weight: bold; cursor: pointer; min-width: 28px; white-space: nowrap; }
   .k-btn:active { background: #007aff; border-color: #fff; }
   .k-bot { background: #6c3483; border-color: #8e44ad; color: #f5eef8; }
+  .k-brave { background: #d35400; border-color: #e67e22; color: #fff; }
   .k-app { background: #1a5276; border-color: #2980b9; color: #5dade2; }
   .k-action { background: #005bb5; border-color: #007aff; }
   .k-green { background: #1e8449; border-color: #27ae60; color: #a9dfbf; }
@@ -123,7 +86,7 @@ RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
     <button class="k-btn k-action" onclick="pressK(0xff56)">📜 Scroll ⬇️</button>
   </div>
   <div class="kbd-row">
-    <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0062])">🦊 Firefox Dark</button>
+    <button class="k-btn k-brave" onclick="sendCombo([0xffe3, 0xffe9, 0x0062])">🦁 Brave Shields</button>
     <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0066])">📁 سطح المكتب</button>
     <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0074])">💻 التيرمينال</button>
     <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0065])">📝 Notepad++</button>
@@ -232,7 +195,7 @@ EOF
 RUN sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc.html && \
     sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc_auto.html
 
-# 7. تشغيل Supervisord: الأنبوب المباشر (Websockify على 10000 مباشرة + عزل x11vnc بـ localhost الصارم)
+# 7. تشغيل Supervisord: تشغيل Brave Browser المخفف والمحصن + إيقاف websockets في x11vnc لمنع 1006
 RUN cat << 'EOF' > /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
@@ -275,7 +238,7 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
 [program:x11vnc]
-command=x11vnc -display :0 -nopw -forever -shared -localhost -rfbport 5900 -noclipboard -nosel -wait 20 -defer 20
+command=x11vnc -display :0 -nopw -forever -shared -localhost -rfbport 5900 -nowebsockets -noclipboard -nosel -wait 20 -defer 20
 priority=30
 autorestart=true
 stdout_logfile=/dev/stdout
@@ -292,9 +255,9 @@ stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
-[program:firefox]
-command=firefox-esr -profile /root/.mozilla/firefox/mainprofile --width 1024 --height 768 "https://www.google.com"
-environment=DISPLAY=":0",HOME="/root",MOZ_DISABLE_CONTENT_SANDBOX="1",MOZ_DISABLE_GMP_SANDBOX="1",MOZ_DISABLE_RDD_SANDBOX="1",MOZ_DISABLE_GLXTEST="1"
+[program:brave]
+command=brave-browser --no-sandbox --disable-gpu --disable-dev-shm-usage --force-dark-mode --enable-features=WebContentsForceDark --disable-features=BraveRewards,BraveNews,BraveWallet,BraveSync --disk-cache-dir=/tmp/brave-cache --disk-cache-size=209715200 --js-flags="--max-old-space-size=150 --optimize-for-size" --renderer-process-limit=1 --window-size=1024,768 --start-maximized "https://www.google.com"
+environment=DISPLAY=":0",HOME="/root"
 priority=50
 autorestart=true
 stdout_logfile=/dev/stdout
