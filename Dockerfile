@@ -195,7 +195,7 @@ EOF
 RUN sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc.html && \
     sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc_auto.html
 
-# 7. تشغيل Supervisord: صلحنا أمر x11vnc بـ -nohttp الصافي
+# 7. تشغيل Supervisord: سطر x11vnc القياسي المضمون 100%
 RUN cat << 'EOF' > /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
@@ -238,7 +238,7 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
 [program:x11vnc]
-command=x11vnc -display :0 -nopw -forever -shared -localhost -rfbport 5900 -nohttp -noclipboard -nosel -wait 20 -defer 20
+command=x11vnc -display :0 -nopw -forever -shared -rfbport 5900
 priority=30
 autorestart=true
 stdout_logfile=/dev/stdout
