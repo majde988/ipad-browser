@@ -3,10 +3,9 @@ FROM debian:bullseye-slim
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
-# قتل الساندبوكس الداخلي لمنع كراش التابات نهائياً
 ENV MOZ_DISABLE_CONTENT_SANDBOX=1
 
-# 1. تثبيت الحزم الأساسية
+# 1. تثبيت الحزم الأساسية، الخطوط، وأداة ضبط الخلفية feh
 RUN apt-get update && apt-get install -y \
     xvfb \
     fluxbox \
@@ -21,11 +20,13 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     procps \
     git \
+    feh \
     fonts-liberation \
     fonts-kacst \
     fonts-dejavu-core \
     locales \
     python3 \
+    curl \
     && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*
 
@@ -33,25 +34,41 @@ RUN apt-get update && apt-get install -y \
 RUN rm -rf /usr/share/novnc && \
     git clone --branch v0.6.2 --depth 1 https://github.com/novnc/noVNC.git /usr/share/novnc
 
-RUN mkdir -p /root/Desktop /root/Downloads /tmp/firefox-cache /root/.mozilla/firefox/mainprofile /root/.fluxbox /var/log/supervisor /var/run
+# 3. إنشاء المجلدات وتحميل خلفية ويندوز 10 الزرقاء الأصلية بدقة عالية
+RUN mkdir -p /root/Desktop /root/Downloads /tmp/firefox-cache /root/.mozilla/firefox/mainprofile /root/.fluxbox /var/log/supervisor /var/run && \
+    curl -sL "https://wallpaperaccess.com/full/764827.jpg" -o /root/wallpaper.jpg || \
+    curl -sL "https://i.imgur.com/S9Mj5u9.jpg" -o /root/wallpaper.jpg
 
-# 3. إعدادات Firefox المصلحة والمستقرة (بدون كراش التابات + تزوير العتاد)
+# 4. إعدادات Firefox: تفعيل الدارك مود التام للمتصفح والمواقع + تزوير العتاد
 RUN cat << 'EOF' > /root/.mozilla/firefox/mainprofile/user.js
+// تفعيل الدارك مود التام (الواجهة + صفحات الويب)
+user_pref("ui.systemUsesDarkTheme", 1);
+user_pref("layout.css.prefers-color-scheme.content-override", 0);
+user_pref("browser.theme.content-theme", 2);
+user_pref("browser.theme.toolbar-theme", 2);
+user_pref("extensions.activeThemeID", "firefox-compact-dark@mozilla.org");
+
 // حل مشكلة كراش التابات في دوكر
 user_pref("security.sandbox.content.level", 0);
 user_pref("gfx.webrender.software", true);
 user_pref("layers.acceleration.disabled", true);
+
+// إيقاف اقتراحات شريط البحث لمنع تعليق 1006
+user_pref("browser.search.suggest.enabled", false);
+user_pref("browser.urlbar.suggest.searches", false);
+user_pref("browser.urlbar.suggest.history", false);
+user_pref("browser.urlbar.suggest.bookmark", false);
+user_pref("browser.urlbar.suggest.openpage", false);
+user_pref("browser.urlbar.autoFill", false);
 
 // تزوير كارت الشاشة لكسر حماية Cloudflare
 user_pref("webgl.override-renderer", "ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0)");
 user_pref("webgl.override-vendor", "Google Inc. (Intel)");
 user_pref("webgl.disabled", false);
 
-// محو صفة الروبوت نهائياً
+// محو صفة الروبوت
 user_pref("dom.webdriver.enabled", false);
 user_pref("media.navigator.enabled", false);
-
-// بصمة حاسوب Windows 11 منزلي حقيقي
 user_pref("general.useragent.override", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0");
 user_pref("intl.accept_languages", "ar,en-US,en");
 
@@ -60,11 +77,11 @@ user_pref("dom.ipc.processCount", 1);
 user_pref("browser.cache.memory.enable", false);
 user_pref("browser.cache.disk.enable", true);
 user_pref("browser.cache.disk.parent_directory", "/tmp/firefox-cache");
-user_pref("browser.sessionstore.max_tabs_undo", 2);
+user_pref("browser.sessionstore.max_tabs_undo", 1);
 user_pref("browser.startup.homepage", "https://www.google.com");
 EOF
 
-# 4. سكريبت استقبال الملفات من الآيباد
+# 5. سكريبت استقبال الملفات
 RUN cat << 'EOF' > /root/upload_server.py
 import http.server
 import socketserver
@@ -102,7 +119,7 @@ if __name__ == '__main__':
     server.serve_forever()
 EOF
 
-# 5. ضبط Nginx
+# 6. ضبط Nginx الموحد لمنفذ 10000
 RUN cat << 'EOF' > /etc/nginx/nginx.conf
 user root;
 worker_processes 1;
@@ -124,7 +141,8 @@ http {
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";
-            proxy_read_timeout 86400;
+            proxy_read_timeout 86400s;
+            proxy_send_timeout 86400s;
             proxy_buffering off;
         }
         location /downloads/ {
@@ -138,7 +156,7 @@ http {
 }
 EOF
 
-# 6. ضبط اختصارات سطح المكتب
+# 7. ضبط اختصارات سطح المكتب
 RUN echo 'Control Mod1 e :Exec geany\n\
 Control Mod1 t :Exec lxterminal\n\
 Control Mod1 f :Exec pcmanfm /root/Desktop\n\
@@ -149,12 +167,12 @@ Mod1 F4 :Close' > /root/.fluxbox/keys && \
 [exec] (Notepad++ / Geany) {geany}\n\
 [exec] (File Manager) {pcmanfm /root/Desktop}\n\
 [exec] (Terminal) {lxterminal}\n\
-[exec] (Firefox Stealth Browser) {firefox-esr -profile /root/.mozilla/firefox/mainprofile "https://www.google.com"}\n\
+[exec] (Firefox Dark) {firefox-esr -profile /root/.mozilla/firefox/mainprofile "https://www.google.com"}\n\
 [separator]\n\
 [restart] (Restart Desktop)\n\
 [end]' > /root/.fluxbox/menu
 
-# 7. حقن لوحة التحكم ومحاكي النقر البشري المنحني
+# 8. حقن لوحة التحكم ومحاكي النقر البشري
 RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
 <style>
   #kbd-toggle { position: fixed; bottom: 8px; right: 8px; z-index: 99999; background: #007aff; color: #fff; border: none; padding: 7px 13px; border-radius: 20px; font-weight: bold; font-size: 13px; box-shadow: 0 4px 10px rgba(0,0,0,0.6); cursor: pointer; }
@@ -182,7 +200,7 @@ RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
     <button class="k-btn k-action" onclick="pressK(0xff56)">📜 Scroll ⬇️</button>
   </div>
   <div class="kbd-row">
-    <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0062])">🦊 Firefox</button>
+    <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0062])">🦊 Firefox Dark</button>
     <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0066])">📁 سطح المكتب</button>
     <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0074])">💻 التيرمينال</button>
     <button class="k-btn k-app" onclick="sendCombo([0xffe3, 0xffe9, 0x0065])">📝 Notepad++</button>
@@ -308,7 +326,7 @@ EOF
 RUN sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc.html && \
     sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc_auto.html
 
-# 8. إعداد Supervisord: إطلاق Firefox مع تعطيل ساندبوكس التابات في البيئة
+# 9. تشغيل Supervisord: تشغيل الشاشة، خلفية Windows 10 عبر feh، وFirefox في الوضع المظلم
 RUN cat << 'EOF' > /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
@@ -325,6 +343,12 @@ command=Xvfb :0 -screen 0 1024x768x16
 priority=10
 autorestart=true
 
+[program:wallpaper]
+command=sh -c "sleep 2 && feh --bg-scale /root/wallpaper.jpg"
+priority=15
+autorestart=false
+startretries=1
+
 [program:fluxbox]
 command=fluxbox
 environment=DISPLAY=":0"
@@ -332,12 +356,12 @@ priority=20
 autorestart=true
 
 [program:x11vnc]
-command=x11vnc -display :0 -nopw -forever -shared -rfbport 5900 -noxdamage -nowf -wait 30 -defer 30
+command=x11vnc -display :0 -nopw -forever -shared -rfbport 5900 -wait 20 -defer 20
 priority=30
 autorestart=true
 
 [program:websockify]
-command=websockify 6080 localhost:5900
+command=websockify --heartbeat 15 6080 localhost:5900
 priority=35
 autorestart=true
 
