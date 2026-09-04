@@ -195,7 +195,7 @@ EOF
 RUN sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc.html && \
     sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc_auto.html
 
-# 7. تشغيل Supervisord: تشغيل Brave Browser المخفف والمحصن + إيقاف websockets في x11vnc لمنع 1006
+# 7. تشغيل Supervisord: صلحنا أمر x11vnc بـ -nohttp الصافي
 RUN cat << 'EOF' > /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
@@ -238,7 +238,7 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
 [program:x11vnc]
-command=x11vnc -display :0 -nopw -forever -shared -localhost -rfbport 5900 -nowebsockets -noclipboard -nosel -wait 20 -defer 20
+command=x11vnc -display :0 -nopw -forever -shared -localhost -rfbport 5900 -nohttp -noclipboard -nosel -wait 20 -defer 20
 priority=30
 autorestart=true
 stdout_logfile=/dev/stdout
