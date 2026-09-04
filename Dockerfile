@@ -3,9 +3,11 @@ FROM debian:bullseye-slim
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
+# تعطيل كل أدوات الفحص والساندبوكس المسببة لتجميد المتصفح
 ENV MOZ_DISABLE_CONTENT_SANDBOX=1
 ENV MOZ_DISABLE_GMP_SANDBOX=1
 ENV MOZ_DISABLE_RDD_SANDBOX=1
+ENV MOZ_DISABLE_GLXTEST=1
 
 # 1. تثبيت الحزم الأساسية
 RUN apt-get update && apt-get install -y \
@@ -18,7 +20,6 @@ RUN apt-get update && apt-get install -y \
     geany-plugins \
     pcmanfm \
     lxterminal \
-    nginx-light \
     supervisor \
     procps \
     feh \
@@ -32,16 +33,17 @@ RUN apt-get update && apt-get install -y \
     && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. تحميل noVNC v0.6.2 بـ curl
+# 2. تحميل noVNC v0.6.2 المتوافقة مع iOS 9
 RUN rm -rf /usr/share/novnc && mkdir -p /usr/share/novnc && \
     curl -sL https://github.com/novnc/noVNC/archive/refs/tags/v0.6.2.tar.gz | tar -xz --strip-components=1 -C /usr/share/novnc
 
-# 3. إنشاء المجلدات وتحميل خلفية Windows 10
+# 3. المجلدات والخلفية وربط مجلد التنزيلات مباشرة بـ noVNC
 RUN mkdir -p /root/Desktop /root/Downloads /tmp/firefox-cache /root/.mozilla/firefox/mainprofile /root/.fluxbox /var/log/supervisor /var/run && \
+    ln -s /root/Downloads /usr/share/novnc/downloads && \
     curl -sL "https://wallpaperaccess.com/full/764827.jpg" -o /root/wallpaper.jpg || \
     curl -sL "https://i.imgur.com/S9Mj5u9.jpg" -o /root/wallpaper.jpg || true
 
-# 4. إعدادات Firefox: قتل محاولات الساندبوكس نهائياً لمنع EPERM والتعليق
+# 4. إعدادات Firefox: إيقاف اقتراحات شريط البحث وتثبيت الأداء
 RUN cat << 'EOF' > /root/.mozilla/firefox/mainprofile/user.js
 user_pref("ui.systemUsesDarkTheme", 1);
 user_pref("layout.css.prefers-color-scheme.content-override", 0);
@@ -79,93 +81,7 @@ user_pref("browser.sessionstore.max_tabs_undo", 1);
 user_pref("browser.startup.homepage", "https://www.google.com");
 EOF
 
-# 5. سكريبت استقبال الملفات مربوط محلياً فقط على 127.0.0.1
-RUN cat << 'EOF' > /root/upload_server.py
-import http.server
-import socketserver
-import cgi
-import os
-
-class UploadHandler(http.server.BaseHTTPRequestHandler):
-    def do_POST(self):
-        try:
-            form = cgi.FieldStorage(
-                fp=self.rfile,
-                headers=self.headers,
-                environ={'REQUEST_METHOD': 'POST', 'CONTENT_TYPE': self.headers.get('Content-Type', '')}
-            )
-            if 'file' in form:
-                file_item = form['file']
-                filename = os.path.basename(file_item.filename)
-                save_path = os.path.join('/root/Desktop', filename)
-                with open(save_path, 'wb') as f:
-                    f.write(file_item.file.read())
-                self.send_response(200)
-                self.send_header('Content-Type', 'text/plain; charset=utf-8')
-                self.end_headers()
-                self.wfile.write(b"OK")
-            else:
-                self.send_response(400)
-                self.end_headers()
-        except Exception:
-            self.send_response(500)
-            self.end_headers()
-
-if __name__ == '__main__':
-    socketserver.TCPServer.allow_reuse_address = True
-    server = socketserver.TCPServer(('127.0.0.1', 8001), UploadHandler)
-    server.serve_forever()
-EOF
-
-# 6. ضبط Nginx الاحترافي: عزل المنافذ وضمان استقرار WebSocket بدون انقطاع
-RUN cat << 'EOF' > /etc/nginx/nginx.conf
-user root;
-worker_processes 1;
-pid /var/run/nginx.pid;
-events { worker_connections 1024; }
-
-http {
-    include /etc/nginx/mime.types;
-    default_type application/octet-stream;
-    sendfile on;
-    client_max_body_size 500M;
-
-    map $http_upgrade $connection_upgrade {
-        default upgrade;
-        '' close;
-    }
-
-    server {
-        listen 10000;
-
-        location / {
-            root /usr/share/novnc;
-            index vnc.html;
-        }
-
-        location /websockify {
-            proxy_pass http://127.0.0.1:6080/websockify;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection $connection_upgrade;
-            proxy_read_timeout 86400s;
-            proxy_send_timeout 86400s;
-            proxy_buffering off;
-        }
-
-        location /downloads/ {
-            alias /root/Downloads/;
-            autoindex on;
-        }
-
-        location /upload {
-            proxy_pass http://127.0.0.1:8001;
-        }
-    }
-}
-EOF
-
-# 7. اختصارات سطح المكتب
+# 5. اختصارات سطح المكتب
 RUN echo 'Control Mod1 e :Exec geany\n\
 Control Mod1 t :Exec lxterminal\n\
 Control Mod1 f :Exec pcmanfm /root/Desktop\n\
@@ -181,7 +97,7 @@ Mod1 F4 :Close' > /root/.fluxbox/keys && \
 [restart] (Restart Desktop)\n\
 [end]' > /root/.fluxbox/menu
 
-# 8. حقن لوحة التحكم
+# 6. حقن لوحة التحكم ومحاكي النقر البشري
 RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
 <style>
   #kbd-toggle { position: fixed; bottom: 8px; right: 8px; z-index: 99999; background: #007aff; color: #fff; border: none; padding: 7px 13px; border-radius: 20px; font-weight: bold; font-size: 13px; box-shadow: 0 4px 10px rgba(0,0,0,0.6); cursor: pointer; }
@@ -197,13 +113,11 @@ RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
   .k-spec { background: #3d3d3d; }
 </style>
 
-<input type="file" id="fileUploader" style="display:none;" onchange="handleFileUpload(this)">
 <button id="kbd-toggle" onclick="toggleKbd()">🎛️ مركز التحكم</button>
 
 <div id="virtual-keyboard">
   <div class="kbd-row">
     <button class="k-btn k-bot" id="humanBtn" onclick="toggleHumanMode()">🖱️ نقر بشري (Anti-Bot): OFF</button>
-    <button class="k-btn k-green" onclick="document.getElementById('fileUploader').click()">📤 رفع ملف (AirDrop)</button>
     <button class="k-btn k-green" onclick="window.open('/downloads/', '_blank')">📥 التنزيلات</button>
     <button class="k-btn k-action" onclick="pressK(0xff55)">📜 Scroll ⬆️</button>
     <button class="k-btn k-action" onclick="pressK(0xff56)">📜 Scroll ⬇️</button>
@@ -312,30 +226,13 @@ RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
       }
     }
   }, true);
-
-  function handleFileUpload(input) {
-    if (input.files.length === 0) return;
-    var file = input.files[0];
-    var fd = new FormData();
-    fd.append('file', file);
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/upload', true);
-    xhr.onload = function() {
-      if (xhr.status === 200) {
-        alert('✅ تم رفع الملف "' + file.name + '" مباشرة إلى سطح المكتب في السحابة!');
-      } else {
-        alert('❌ فشل رفع الملف.');
-      }
-    };
-    xhr.send(fd);
-  }
 </script>
 EOF
 
 RUN sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc.html && \
     sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc_auto.html
 
-# 9. تشغيل Supervisord: حصر المنافذ الداخلية على 127.0.0.1 لمنع تضارب Render
+# 7. تشغيل Supervisord: الأنبوب المباشر (Websockify على 10000 مباشرة + عزل x11vnc بـ localhost الصارم)
 RUN cat << 'EOF' > /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
@@ -378,7 +275,7 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
 [program:x11vnc]
-command=x11vnc -display :0 -nopw -forever -shared -listen 127.0.0.1 -rfbport 5900 -noclipboard -nosel -wait 20 -defer 20
+command=x11vnc -display :0 -nopw -forever -shared -localhost -rfbport 5900 -noclipboard -nosel -wait 20 -defer 20
 priority=30
 autorestart=true
 stdout_logfile=/dev/stdout
@@ -387,26 +284,8 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
 [program:websockify]
-command=websockify --heartbeat 15 127.0.0.1:6080 127.0.0.1:5900
+command=websockify --web /usr/share/novnc --heartbeat 15 10000 127.0.0.1:5900
 priority=35
-autorestart=true
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-stderr_logfile=/dev/stderr
-stderr_logfile_maxbytes=0
-
-[program:upload_server]
-command=python3 /root/upload_server.py
-priority=35
-autorestart=true
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-stderr_logfile=/dev/stderr
-stderr_logfile_maxbytes=0
-
-[program:nginx]
-command=nginx -g "daemon off;"
-priority=40
 autorestart=true
 stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
@@ -415,7 +294,7 @@ stderr_logfile_maxbytes=0
 
 [program:firefox]
 command=firefox-esr -profile /root/.mozilla/firefox/mainprofile --width 1024 --height 768 "https://www.google.com"
-environment=DISPLAY=":0",HOME="/root",MOZ_DISABLE_CONTENT_SANDBOX="1",MOZ_DISABLE_GMP_SANDBOX="1",MOZ_DISABLE_RDD_SANDBOX="1"
+environment=DISPLAY=":0",HOME="/root",MOZ_DISABLE_CONTENT_SANDBOX="1",MOZ_DISABLE_GMP_SANDBOX="1",MOZ_DISABLE_RDD_SANDBOX="1",MOZ_DISABLE_GLXTEST="1"
 priority=50
 autorestart=true
 stdout_logfile=/dev/stdout
