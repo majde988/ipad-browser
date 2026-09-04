@@ -19,7 +19,6 @@ RUN apt-get update && apt-get install -y \
     nginx-light \
     supervisor \
     procps \
-    git \
     feh \
     fonts-liberation \
     fonts-kacst \
@@ -27,19 +26,20 @@ RUN apt-get update && apt-get install -y \
     locales \
     python3 \
     curl \
+    tar \
     && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. تحميل noVNC الكلاسيكية المتوافقة مع iOS 9
-RUN rm -rf /usr/share/novnc && \
-    git clone --branch v0.6.2 --depth 1 https://github.com/novnc/noVNC.git /usr/share/novnc
+# 2. تحميل noVNC v0.6.2 بـ curl وفك الضغط مباشرة لتفادي خطأ GitHub rate-limit
+RUN rm -rf /usr/share/novnc && mkdir -p /usr/share/novnc && \
+    curl -sL https://github.com/novnc/noVNC/archive/refs/tags/v0.6.2.tar.gz | tar -xz --strip-components=1 -C /usr/share/novnc
 
-# 3. إنشاء المجلدات وتحميل خلفية ويندوز 10 الزرقاء الأصلية بدقة عالية
+# 3. إنشاء المجلدات وتحميل خلفية ويندوز 10 الزرقاء الرسمية
 RUN mkdir -p /root/Desktop /root/Downloads /tmp/firefox-cache /root/.mozilla/firefox/mainprofile /root/.fluxbox /var/log/supervisor /var/run && \
     curl -sL "https://wallpaperaccess.com/full/764827.jpg" -o /root/wallpaper.jpg || \
-    curl -sL "https://i.imgur.com/S9Mj5u9.jpg" -o /root/wallpaper.jpg
+    curl -sL "https://i.imgur.com/S9Mj5u9.jpg" -o /root/wallpaper.jpg || true
 
-# 4. إعدادات Firefox: تفعيل الدارك مود التام للمتصفح والمواقع + تزوير العتاد
+# 4. إعدادات Firefox: تفعيل الدارك مود التام + حماية من الكراش + تزوير العتاد ضد الكابتشا
 RUN cat << 'EOF' > /root/.mozilla/firefox/mainprofile/user.js
 // تفعيل الدارك مود التام (الواجهة + صفحات الويب)
 user_pref("ui.systemUsesDarkTheme", 1);
@@ -326,7 +326,7 @@ EOF
 RUN sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc.html && \
     sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc_auto.html
 
-# 9. تشغيل Supervisord: تشغيل الشاشة، خلفية Windows 10 عبر feh، وFirefox في الوضع المظلم
+# 9. تشغيل Supervisord: تشغيل الشاشة، خلفية Windows 10، وFirefox Dark
 RUN cat << 'EOF' > /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
