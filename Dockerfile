@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y curl gnupg && \
     curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg && \
     echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" > /etc/apt/sources.list.d/brave-browser-release.list
 
-# 2. تثبيت الحزم الأساسية: Brave Browser، محرر Geany، مدير الملفات، التيرمينال، أدوات النظام والخطوط
+# 2. تثبيت الحزم الأساسية
 RUN apt-get update && apt-get install -y \
     xvfb \
     fluxbox \
@@ -37,13 +37,13 @@ RUN apt-get update && apt-get install -y \
 RUN rm -rf /usr/share/novnc && mkdir -p /usr/share/novnc && \
     curl -sL https://github.com/novnc/noVNC/archive/refs/tags/v0.6.2.tar.gz | tar -xz --strip-components=1 -C /usr/share/novnc
 
-# 4. المجلدات والخلفية وربط التنزيلات بـ noVNC
+# 4. المجلدات وتحميل خلفية Windows 10 الأصلية برابط GitHub مباشر 100%
 RUN mkdir -p /root/Desktop /root/Downloads /tmp/brave-cache /root/.config/BraveSoftware /root/.fluxbox /var/log/supervisor /var/run && \
     ln -s /root/Downloads /usr/share/novnc/downloads && \
-    curl -sL "https://wallpaperaccess.com/full/764827.jpg" -o /root/wallpaper.jpg || \
-    curl -sL "https://i.imgur.com/S9Mj5u9.jpg" -o /root/wallpaper.jpg || true
+    curl -sL "https://raw.githubusercontent.com/Bavfalcon9/Wallpapers/master/Windows%2010%20Hero.jpg" -o /root/wallpaper.jpg || \
+    curl -sL "https://archive.org/download/windows-10-hero-wallpaper/img0.jpg" -o /root/wallpaper.jpg || true
 
-# 5. اختصارات سطح المكتب لـ Brave والأدوات
+# 5. اختصارات سطح المكتب وقائمة المنيو
 RUN echo 'Control Mod1 e :Exec geany\n\
 Control Mod1 t :Exec lxterminal\n\
 Control Mod1 f :Exec pcmanfm /root/Desktop\n\
@@ -195,7 +195,7 @@ EOF
 RUN sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc.html && \
     sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc_auto.html
 
-# 7. تشغيل Supervisord: سطر x11vnc القياسي المضمون 100%
+# 7. تشغيل Supervisord: ضبط feh مع DISPLAY=:0 و priority صحيحة بعد Fluxbox
 RUN cat << 'EOF' > /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
@@ -217,16 +217,6 @@ stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
-[program:wallpaper]
-command=sh -c "sleep 2 && feh --bg-scale /root/wallpaper.jpg"
-priority=15
-autorestart=false
-startretries=1
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-stderr_logfile=/dev/stderr
-stderr_logfile_maxbytes=0
-
 [program:fluxbox]
 command=fluxbox
 environment=DISPLAY=":0"
@@ -237,8 +227,19 @@ stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
+[program:wallpaper]
+command=sh -c "sleep 3 && feh --bg-scale /root/wallpaper.jpg"
+environment=DISPLAY=":0"
+priority=25
+autorestart=false
+startretries=2
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+
 [program:x11vnc]
-command=x11vnc -display :0 -nopw -forever -shared -rfbport 5900
+command=x11vnc -display :0 -nopw -forever -shared -localhost -rfbport 5900 -noclipboard -nosel -wait 20 -defer 20
 priority=30
 autorestart=true
 stdout_logfile=/dev/stdout
