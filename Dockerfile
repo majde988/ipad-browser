@@ -4,8 +4,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 ENV MOZ_DISABLE_CONTENT_SANDBOX=1
+ENV MOZ_DISABLE_GMP_SANDBOX=1
+ENV MOZ_DISABLE_RDD_SANDBOX=1
 
-# 1. تثبيت الحزم
+# 1. تثبيت الحزم الأساسية
 RUN apt-get update && apt-get install -y \
     xvfb \
     fluxbox \
@@ -34,12 +36,12 @@ RUN apt-get update && apt-get install -y \
 RUN rm -rf /usr/share/novnc && mkdir -p /usr/share/novnc && \
     curl -sL https://github.com/novnc/noVNC/archive/refs/tags/v0.6.2.tar.gz | tar -xz --strip-components=1 -C /usr/share/novnc
 
-# 3. المجلدات والخلفية
+# 3. إنشاء المجلدات وتحميل خلفية Windows 10
 RUN mkdir -p /root/Desktop /root/Downloads /tmp/firefox-cache /root/.mozilla/firefox/mainprofile /root/.fluxbox /var/log/supervisor /var/run && \
     curl -sL "https://wallpaperaccess.com/full/764827.jpg" -o /root/wallpaper.jpg || \
     curl -sL "https://i.imgur.com/S9Mj5u9.jpg" -o /root/wallpaper.jpg || true
 
-# 4. إعدادات Firefox فائقة الخفة مع تعطيل الاقتراحات المسببة للضغط
+# 4. إعدادات Firefox: قتل محاولات الساندبوكس نهائياً لمنع EPERM والتعليق
 RUN cat << 'EOF' > /root/.mozilla/firefox/mainprofile/user.js
 user_pref("ui.systemUsesDarkTheme", 1);
 user_pref("layout.css.prefers-color-scheme.content-override", 0);
@@ -48,6 +50,8 @@ user_pref("browser.theme.toolbar-theme", 2);
 user_pref("extensions.activeThemeID", "firefox-compact-dark@mozilla.org");
 
 user_pref("security.sandbox.content.level", 0);
+user_pref("security.sandbox.rdd.level", 0);
+user_pref("security.sandbox.socket.process.level", 0);
 user_pref("gfx.webrender.software", true);
 user_pref("layers.acceleration.disabled", true);
 
@@ -75,7 +79,7 @@ user_pref("browser.sessionstore.max_tabs_undo", 1);
 user_pref("browser.startup.homepage", "https://www.google.com");
 EOF
 
-# 5. سكريبت استقبال الملفات
+# 5. سكريبت استقبال الملفات مربوط محلياً فقط على 127.0.0.1
 RUN cat << 'EOF' > /root/upload_server.py
 import http.server
 import socketserver
@@ -113,36 +117,47 @@ if __name__ == '__main__':
     server.serve_forever()
 EOF
 
-# 6. ضبط Nginx
+# 6. ضبط Nginx الاحترافي: عزل المنافذ وضمان استقرار WebSocket بدون انقطاع
 RUN cat << 'EOF' > /etc/nginx/nginx.conf
 user root;
 worker_processes 1;
 pid /var/run/nginx.pid;
 events { worker_connections 1024; }
+
 http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
     sendfile on;
     client_max_body_size 500M;
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        '' close;
+    }
+
     server {
         listen 10000;
+
         location / {
             root /usr/share/novnc;
             index vnc.html;
         }
+
         location /websockify {
             proxy_pass http://127.0.0.1:6080/websockify;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
+            proxy_set_header Connection $connection_upgrade;
             proxy_read_timeout 86400s;
             proxy_send_timeout 86400s;
             proxy_buffering off;
         }
+
         location /downloads/ {
             alias /root/Downloads/;
             autoindex on;
         }
+
         location /upload {
             proxy_pass http://127.0.0.1:8001;
         }
@@ -150,7 +165,7 @@ http {
 }
 EOF
 
-# 7. ضبط اختصارات سطح المكتب
+# 7. اختصارات سطح المكتب
 RUN echo 'Control Mod1 e :Exec geany\n\
 Control Mod1 t :Exec lxterminal\n\
 Control Mod1 f :Exec pcmanfm /root/Desktop\n\
@@ -166,7 +181,7 @@ Mod1 F4 :Close' > /root/.fluxbox/keys && \
 [restart] (Restart Desktop)\n\
 [end]' > /root/.fluxbox/menu
 
-# 8. حقن لوحة التحكم ومحاكي النقر البشري
+# 8. حقن لوحة التحكم
 RUN cat << 'EOF' > /usr/share/novnc/keyboard_addon.html
 <style>
   #kbd-toggle { position: fixed; bottom: 8px; right: 8px; z-index: 99999; background: #007aff; color: #fff; border: none; padding: 7px 13px; border-radius: 20px; font-weight: bold; font-size: 13px; box-shadow: 0 4px 10px rgba(0,0,0,0.6); cursor: pointer; }
@@ -320,7 +335,7 @@ EOF
 RUN sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc.html && \
     sed -i '/<\/body>/e cat /usr/share/novnc/keyboard_addon.html' /usr/share/novnc/vnc_auto.html
 
-# 9. تشغيل Supervisord: بث كل السجلات الحية لـ Render (stdout/stderr) + إصلاح كراش الحافظة في x11vnc
+# 9. تشغيل Supervisord: حصر المنافذ الداخلية على 127.0.0.1 لمنع تضارب Render
 RUN cat << 'EOF' > /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
@@ -363,7 +378,7 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
 [program:x11vnc]
-command=x11vnc -display :0 -nopw -forever -shared -rfbport 5900 -noclipboard -nosel -wait 20 -defer 20
+command=x11vnc -display :0 -nopw -forever -shared -listen 127.0.0.1 -rfbport 5900 -noclipboard -nosel -wait 20 -defer 20
 priority=30
 autorestart=true
 stdout_logfile=/dev/stdout
@@ -372,7 +387,7 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
 [program:websockify]
-command=websockify --heartbeat 15 6080 localhost:5900
+command=websockify --heartbeat 15 127.0.0.1:6080 127.0.0.1:5900
 priority=35
 autorestart=true
 stdout_logfile=/dev/stdout
@@ -400,7 +415,7 @@ stderr_logfile_maxbytes=0
 
 [program:firefox]
 command=firefox-esr -profile /root/.mozilla/firefox/mainprofile --width 1024 --height 768 "https://www.google.com"
-environment=DISPLAY=":0",HOME="/root",MOZ_DISABLE_CONTENT_SANDBOX="1"
+environment=DISPLAY=":0",HOME="/root",MOZ_DISABLE_CONTENT_SANDBOX="1",MOZ_DISABLE_GMP_SANDBOX="1",MOZ_DISABLE_RDD_SANDBOX="1"
 priority=50
 autorestart=true
 stdout_logfile=/dev/stdout
