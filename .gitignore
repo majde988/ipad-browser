@@ -1,0 +1,19 @@
+# .gitignore
+# Generated standard ignores
+
+# Node / build
+node_modules/
+*.log
+.env
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Docker
+Dockerfile
+docker-compose.yml
+
+# Misc
+.vscode/

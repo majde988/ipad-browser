@@ -1,0 +1,14 @@
+session.screen0.workspaces:            1
+session.screen0.focusModel:            ClickFocus
+session.screen0.toolbar.visible:       true
+session.screen0.toolbar.placement:     BottomCenter
+session.screen0.toolbar.widthPercent:  100
+session.screen0.toolbar.height:        24
+session.screen0.toolbar.tools:         workspacename, iconbar, systemtray, clock
+session.screen0.clock:                 %H:%M
+session.screen0.defaultDeco:           NORMAL
+session.screen0.tabs.usePixmap:        true
+session.styleFile:                     /usr/share/fluxbox/styles/bora_black
+session.keyFile:                       ~/.fluxbox/keys
+session.menuFile:                      ~/.fluxbox/menu
+session.ignoreBorder:                  true

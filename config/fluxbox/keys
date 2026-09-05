@@ -1,0 +1,15 @@
+Control Mod1 e :Exec geany
+Control Mod1 t :Exec lxterminal
+Control Mod1 f :Exec pcmanfm ~/Desktop
+Control Mod1 b :Exec brave-browser --no-sandbox
+Control Mod1 d :ShowDesktop
+Mod1 F4        :Close
+Mod1 Tab       :NextWindow
+Mod4 Up        :Maximize
+Mod4 Down      :Minimize
+OnDesktop Mouse3 :RootMenu
+
+# ── قناة أوامر MemGuard (Control-over-VNC) ──
+Control Mod1 Shift g :Exec touch /run/clouddesk/cmd/gc
+Control Mod1 Shift p :Exec touch /run/clouddesk/cmd/park
+Control Mod1 Shift r :Exec touch /run/clouddesk/cmd/restore

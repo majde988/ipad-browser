@@ -1,0 +1,327 @@
+<!-- ═══════════ CloudDesk Control Panel v2.1 (ES5 / iOS 9 safe) ═══════════ -->
+<style>
+#cd-fab{position:fixed;bottom:10px;right:10px;z-index:99999;background:#007aff;color:#fff;border:0;padding:8px 14px;border-radius:22px;font:bold 13px sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.5);cursor:pointer}
+#cd-status{display:inline-block;width:9px;height:9px;border-radius:50%;background:#e74c3c;margin-left:6px;vertical-align:middle}
+#cd-status.ok{background:#2ecc71}
+#cd-panel{position:fixed;left:0;right:0;bottom:0;z-index:99998;background:rgba(18,18,18,.97);border-top:2px solid #007aff;padding:4px;box-sizing:border-box;direction:rtl;font-family:sans-serif;-webkit-overflow-scrolling:touch}
+#cd-tabs{display:-webkit-flex;display:flex;margin-bottom:4px}
+.cd-tab{-webkit-flex:1;flex:1;margin:0 1px;background:#222;color:#aaa;border:1px solid #333;border-radius:4px;padding:5px;font-size:12px}
+.cd-tab.on{background:#007aff;color:#fff;border-color:#007aff}
+.cd-page{display:none}.cd-page.on{display:block}
+.cd-row{display:-webkit-flex;display:flex;-webkit-justify-content:center;justify-content:center;overflow-x:auto;padding:2px 0}
+.k{margin:1px 2px;background:#2c2c2c;color:#fff;border:1px solid #444;border-radius:4px;padding:6px 8px;font:bold 12px monospace;min-width:30px;white-space:nowrap;cursor:pointer}
+.k:active{background:#007aff}
+.k-bot{background:#6c3483;border-color:#8e44ad}.k-on{background:#1e8449!important;border-color:#2ecc71!important}
+.k-brave{background:#d35400;border-color:#e67e22}.k-app{background:#1a5276;border-color:#2980b9}
+.k-act{background:#005bb5;border-color:#007aff}.k-ok{background:#1e8449;border-color:#27ae60}
+.k-red{background:#922b21;border-color:#c0392b}.k-spec{background:#3d3d3d}
+#cd-text{-webkit-flex:1;flex:1;min-width:120px;margin:1px 2px;padding:6px;border-radius:4px;border:1px solid #555;background:#111;color:#fff;font-size:14px;direction:auto}
+#cd-toast{position:fixed;top:8px;left:50%;-webkit-transform:translateX(-50%);transform:translateX(-50%);background:#000;color:#fff;padding:6px 12px;border-radius:6px;font:12px sans-serif;z-index:100000;display:none;opacity:.9}
+#cd-membar{position:relative;width:100%;max-width:420px;height:22px;background:#222;border:1px solid #444;border-radius:11px;overflow:hidden;margin:2px 8px}
+#cd-memfill{height:100%;width:0;background:#27ae60;-webkit-transition:width .5s,background .5s;transition:width .5s,background .5s}
+#cd-memtxt{position:absolute;left:0;right:0;top:0;line-height:22px;text-align:center;color:#fff;font:bold 12px monospace;text-shadow:0 0 3px #000}
+#cd-meminfo{color:#aaa;font-size:11px;padding:2px 8px;text-align:center}
+</style>
+
+<div id="cd-toast"></div>
+<button id="cd-fab">🎛️ التحكم<span id="cd-status"></span></button>
+
+<div id="cd-panel">
+  <div id="cd-tabs">
+    <button class="cd-tab on" data-tab="main">رئيسي</button>
+    <button class="cd-tab" data-tab="apps">تطبيقات</button>
+    <button class="cd-tab" data-tab="type">كتابة</button>
+    <button class="cd-tab" data-tab="keys">مفاتيح</button>
+    <button class="cd-tab" data-tab="mem">🧠 الذاكرة</button>
+    <button class="cd-tab" data-tab="set">إعدادات</button>
+  </div>
+
+  <!-- رئيسي -->
+  <div class="cd-page on" data-page="main">
+    <div class="cd-row">
+      <button class="k k-act" data-fn="fit">📐 ملاءمة</button>
+      <button class="k k-act" data-fn="fs">⛶ ملء الشاشة</button>
+      <button class="k k-ok"  data-fn="dl">📥 التنزيلات</button>
+      <button class="k k-act" data-key="0xff55">📜 ⬆️</button>
+      <button class="k k-act" data-key="0xff56">📜 ⬇️</button>
+    </div>
+    <div class="cd-row">
+      <button class="k k-act" data-combo="0xffe9,0xff51">◀ رجوع</button>
+      <button class="k k-act" data-combo="0xffe9,0xff53">تقدّم ▶</button>
+      <button class="k k-act" data-combo="0xffe3,0x72">🔄 Reload</button>
+      <button class="k k-act" data-combo="0xffe3,0x6c">🔍 URL</button>
+      <button class="k k-act" data-combo="0xffe3,0x74">+ Tab</button>
+      <button class="k k-red" data-combo="0xffe3,0x77">✕ Tab</button>
+      <button class="k k-act" data-combo="0xffe3,0x66">🔎 بحث</button>
+    </div>
+    <div class="cd-row">
+      <button class="k k-ok"  data-combo="0xffe3,0x73">💾 Save</button>
+      <button class="k k-act" data-combo="0xffe3,0x61">☑ الكل</button>
+      <button class="k k-act" data-combo="0xffe3,0x63">📋 Copy</button>
+      <button class="k k-act" data-combo="0xffe3,0x76">📌 Paste</button>
+      <button class="k k-act" data-combo="0xffe3,0x7a">↶ Undo</button>
+      <button class="k k-act" data-combo="0xffe3,0x3d">🔍+</button>
+      <button class="k k-act" data-combo="0xffe3,0x2d">🔍−</button>
+    </div>
+  </div>
+
+  <!-- تطبيقات -->
+  <div class="cd-page" data-page="apps">
+    <div class="cd-row">
+      <button class="k k-brave" data-combo="0xffe3,0xffe9,0x62">🦁 Brave</button>
+      <button class="k k-app"   data-combo="0xffe3,0xffe9,0x66">📁 الملفات</button>
+      <button class="k k-app"   data-combo="0xffe3,0xffe9,0x74">💻 التيرمينال</button>
+      <button class="k k-app"   data-combo="0xffe3,0xffe9,0x65">📝 Geany</button>
+    </div>
+    <div class="cd-row">
+      <button class="k k-spec" data-combo="0xffe9,0xff09">🔀 تبديل النوافذ</button>
+      <button class="k k-spec" data-combo="0xffe3,0xffe9,0x64">🪟 إخفاء الكل</button>
+      <button class="k k-red"  data-combo="0xffe9,0xffc1">❌ غلق النافذة</button>
+    </div>
+  </div>
+
+  <!-- كتابة -->
+  <div class="cd-page" data-page="type">
+    <div class="cd-row">
+      <input id="cd-text" placeholder="اكتب هنا (يدعم العربية 🇩🇿) ثم أرسل">
+      <button class="k k-ok"  data-fn="send">إرسال</button>
+      <button class="k k-act" data-fn="sendEnter">إرسال + ↵</button>
+      <button class="k k-red" data-fn="clear">مسح</button>
+    </div>
+  </div>
+
+  <!-- مفاتيح -->
+  <div class="cd-page" data-page="keys">
+    <div class="cd-row">
+      <button class="k k-spec" data-key="0xff1b">Esc</button>
+      <button class="k k-spec" data-key="0xff09">Tab</button>
+      <button class="k k-spec" data-sticky="ctrl">Ctrl</button>
+      <button class="k k-spec" data-sticky="alt">Alt</button>
+      <button class="k k-spec" data-sticky="shift">Shift</button>
+      <button class="k k-spec" data-key="0xffeb">⊞</button>
+      <button class="k k-spec" data-key="0x20">Space</button>
+      <button class="k k-spec" data-key="0xff08">Bksp</button>
+      <button class="k k-spec" data-key="0xffff">Del</button>
+      <button class="k k-act"  data-key="0xff0d">Enter ↵</button>
+    </div>
+    <div class="cd-row">
+      <button class="k k-spec" data-key="0xff50">Home</button>
+      <button class="k k-spec" data-key="0xff57">End</button>
+      <button class="k k-spec" data-key="0xffc2">F5</button>
+      <button class="k k-spec" data-key="0xffc8">F11</button>
+      <button class="k k-act"  data-key="0xff51">⬅️</button>
+      <button class="k k-act"  data-key="0xff52">⬆️</button>
+      <button class="k k-act"  data-key="0xff54">⬇️</button>
+      <button class="k k-act"  data-key="0xff53">➡️</button>
+    </div>
+  </div>
+
+  <!-- الذاكرة -->
+  <div class="cd-page" data-page="mem">
+    <div class="cd-row"><div id="cd-membar"><div id="cd-memfill"></div><span id="cd-memtxt">— MB</span></div></div>
+    <div id="cd-meminfo">في انتظار بيانات MemGuard…</div>
+    <div class="cd-row">
+      <button class="k k-act" data-combo="0xffe3,0xffe9,0xffe1,0x67">🧹 تنظيف (GC)</button>
+      <button class="k k-bot" data-combo="0xffe3,0xffe9,0xffe1,0x70">💤 ركن كل الخلفية</button>
+      <button class="k k-ok"  data-combo="0xffe3,0xffe9,0xffe1,0x72">↩ استعادة المركونة</button>
+    </div>
+  </div>
+
+  <!-- إعدادات -->
+  <div class="cd-page" data-page="set">
+    <div class="cd-row">
+      <button class="k k-bot"  id="cd-human" data-fn="human">🖱️ حركة ماوس طبيعية: OFF</button>
+      <button class="k k-spec" id="cd-auto"  data-fn="auto">🔁 إعادة اتصال تلقائي: ON</button>
+      <button class="k k-red"  data-fn="reconnect">🔌 إعادة الاتصال الآن</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var KS = { CTRL: 0xffe3, ALT: 0xffe9, SHIFT: 0xffe1 };
+  var st = load() || { human: false, auto: true, open: true };
+  var sticky = {}, last = { x: 0, y: 0 }, reconnecting = false;
+
+  function $(id) { return document.getElementById(id); }
+  function rfb() { return (window.UI && window.UI.rfb) ? window.UI.rfb : null; }
+  function save() { try { localStorage.setItem('clouddesk', JSON.stringify(st)); } catch (e) {} }
+  function load() { try { return JSON.parse(localStorage.getItem('clouddesk')); } catch (e) { return null; } }
+  function toast(m) {
+    var t = $('cd-toast'); t.innerHTML = m; t.style.display = 'block';
+    clearTimeout(t._t); t._t = setTimeout(function () { t.style.display = 'none'; }, 1600);
+  }
+
+  /* ───── إرسال المفاتيح ───── */
+  function key(k, down) { var r = rfb(); if (r) r.sendKey(k, down); }
+  function mods() { var a = []; if (sticky.ctrl) a.push(KS.CTRL); if (sticky.alt) a.push(KS.ALT); if (sticky.shift) a.push(KS.SHIFT); return a; }
+  function combo(arr) {
+    if (!rfb()) { toast('⚠️ غير متصل'); return; }
+    for (var i = 0; i < arr.length; i++) key(arr[i], 1);
+    setTimeout(function () { for (var j = arr.length - 1; j >= 0; j--) key(arr[j], 0); }, 60);
+  }
+  function press(k) { combo(mods().concat([k])); sticky = {}; refreshSticky(); }
+  function refreshSticky() {
+    var b = document.querySelectorAll('[data-sticky]');
+    for (var i = 0; i < b.length; i++) {
+      var n = b[i].getAttribute('data-sticky');
+      b[i].className = b[i].className.replace(/ k-on/g, '') + (sticky[n] ? ' k-on' : '');
+    }
+  }
+
+  /* ───── كتابة نص Unicode (عربي/لاتيني) ───── */
+  function toKeysym(cp) {
+    if (cp === 10 || cp === 13) return 0xff0d;
+    if (cp === 9) return 0xff09;
+    if (cp >= 0x20 && cp <= 0xff) return cp;
+    return 0x01000000 | cp;
+  }
+  function codePoints(s) {
+    var out = [], i = 0;
+    while (i < s.length) {
+      var c = s.charCodeAt(i++);
+      if (c >= 0xd800 && c <= 0xdbff && i < s.length) {
+        var d = s.charCodeAt(i);
+        if (d >= 0xdc00 && d <= 0xdfff) { c = ((c - 0xd800) << 10) + (d - 0xdc00) + 0x10000; i++; }
+      }
+      out.push(c);
+    }
+    return out;
+  }
+  function typeText(s, enter) {
+    if (!rfb()) { toast('⚠️ غير متصل'); return; }
+    var cps = codePoints(s); if (enter) cps.push(10);
+    var i = 0;
+    (function step() {
+      if (i >= cps.length) { toast('✅ تم الإرسال'); return; }
+      var k = toKeysym(cps[i++]);
+      key(k, 1); setTimeout(function () { key(k, 0); setTimeout(step, 18); }, 18);
+    })();
+  }
+
+  /* ───── الشاشة ───── */
+  function fit() {
+    var r = rfb(); if (!r || !r.get_display) { toast('⚠️ غير متصل'); return; }
+    var p = $('cd-panel');
+    var h = window.innerHeight - (p.style.display !== 'none' ? p.offsetHeight : 0) - 4;
+    var ratio = r.get_display().autoscale(window.innerWidth, h);
+    if (typeof ratio === 'number' && r.get_mouse) r.get_mouse().set_scale(ratio);
+    toast('📐 تمت الملاءمة');
+  }
+  function fullscreen() {
+    var e = document.documentElement;
+    var f = e.requestFullscreen || e.webkitRequestFullscreen || e.mozRequestFullScreen;
+    if (f) f.call(e); else toast('غير مدعوم على هذا الجهاز');
+  }
+
+  /* ───── وضع اللمس: حركة ماوس طبيعية (نقرة واحدة صحيحة) ───── */
+  function canvasEl() { return document.getElementsByTagName('canvas')[0]; }
+  function humanClick(tx, ty) {
+    var r = rfb(); if (!r) return;
+    var sx = last.x, sy = last.y, steps = 12, cur = 0;
+    var mx = (sx + tx) / 2 + (Math.random() * 60 - 30), my = (sy + ty) / 2 + (Math.random() * 60 - 30);
+    var t = setInterval(function () {
+      cur++; var u = cur / steps;
+      var x = Math.round((1 - u) * (1 - u) * sx + 2 * (1 - u) * u * mx + u * u * tx);
+      var y = Math.round((1 - u) * (1 - u) * sy + 2 * (1 - u) * u * my + u * u * ty);
+      r.sendPointerEvent(x, y, 0);
+      if (cur >= steps) {
+        clearInterval(t); last.x = tx; last.y = ty;
+        r.sendPointerEvent(tx, ty, 1);
+        setTimeout(function () { r.sendPointerEvent(tx, ty, 0); }, 80 + Math.floor(Math.random() * 40));
+      }
+    }, 15);
+  }
+  function intercept(e) {
+    if (!st.human) return;
+    var c = canvasEl(); if (!c || e.target !== c) return;
+    e.stopPropagation(); e.preventDefault();
+    if (e.type === 'touchend' || e.type === 'mouseup') {
+      var p = e.changedTouches ? e.changedTouches[0] : e;
+      var rc = c.getBoundingClientRect();
+      humanClick(Math.round((p.clientX - rc.left) * c.width / rc.width),
+                 Math.round((p.clientY - rc.top) * c.height / rc.height));
+    }
+  }
+  var evs = ['mousedown', 'mouseup', 'touchstart', 'touchend', 'touchmove', 'click'];
+  for (var i = 0; i < evs.length; i++) document.addEventListener(evs[i], intercept, true);
+
+  /* ───── الحالة وإعادة الاتصال ───── */
+  setInterval(function () {
+    var r = rfb();
+    var s = r ? (r._rfb_state || r._rfb_connection_state || '') : '';
+    var ok = (s === 'normal' || s === 'connected');
+    $('cd-status').className = ok ? 'ok' : '';
+    if (ok) { try { sessionStorage.removeItem('cd_retries'); } catch (e) {} return; }
+    if (st.auto && !reconnecting && (s === 'disconnected' || s === 'failed' || s === 'fatal')) {
+      var n = 0; try { n = parseInt(sessionStorage.getItem('cd_retries') || '0', 10); } catch (e) {}
+      if (n >= 5) return;
+      reconnecting = true;
+      try { sessionStorage.setItem('cd_retries', String(n + 1)); } catch (e) {}
+      toast('🔁 إعادة الاتصال... (' + (n + 1) + '/5)');
+      setTimeout(function () { location.reload(); }, 3000);
+    }
+  }, 2000);
+
+  /* ───── مراقب الذاكرة (يقرأ /api/mem.json الذي يكتبه MemGuard) ───── */
+  var TIER = ['طبيعي', 'ضغط معتدل', 'ضغط مرتفع', 'حرج'];
+  function pollMem() {
+    if (!st.open || !document.querySelector('.cd-page[data-page="mem"].on')) return;
+    var x = new XMLHttpRequest();
+    x.open('GET', '/api/mem.json?t=' + new Date().getTime(), true);
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      if (x.status !== 200) { $('cd-meminfo').innerHTML = '⚠️ MemGuard غير متاح'; return; }
+      var d; try { d = JSON.parse(x.responseText); } catch (e) { return; }
+      var f = $('cd-memfill'); f.style.width = Math.min(100, d.pct) + '%';
+      f.style.background = d.pct >= 82 ? '#c0392b' : d.pct >= 70 ? '#e67e22' : '#27ae60';
+      $('cd-memtxt').innerHTML = d.used_mb + ' / ' + d.limit_mb + ' MB (' + d.pct + '%)';
+      $('cd-meminfo').innerHTML = 'الحالة: <b>' + TIER[d.tier] + '</b> · تبويبات: ' + d.tabs +
+        ' · خلفية: ' + d.bg + ' · مركونة: 💤' + d.parked + ' · آخر إجراء: ' + d.last;
+    };
+    x.send();
+  }
+  setInterval(pollMem, 3000);
+
+  /* ───── الواجهة ───── */
+  var FN = {
+    fit: fit, fs: fullscreen,
+    dl: function () { window.open('/downloads/', '_blank'); },
+    send: function () { typeText($('cd-text').value, false); },
+    sendEnter: function () { typeText($('cd-text').value, true); },
+    clear: function () { $('cd-text').value = ''; },
+    human: function () { st.human = !st.human; save(); syncUI(); toast(st.human ? '🖱️ الحركة الطبيعية: ON' : '🖱️ الحركة الطبيعية: OFF'); },
+    auto: function () { st.auto = !st.auto; save(); syncUI(); },
+    reconnect: function () { location.reload(); }
+  };
+  function syncUI() {
+    $('cd-human').innerHTML = '🖱️ حركة ماوس طبيعية: ' + (st.human ? 'ON' : 'OFF');
+    $('cd-human').className = 'k k-bot' + (st.human ? ' k-on' : '');
+    $('cd-auto').innerHTML = '🔁 إعادة اتصال تلقائي: ' + (st.auto ? 'ON' : 'OFF');
+    $('cd-auto').className = 'k k-spec' + (st.auto ? ' k-on' : '');
+    $('cd-panel').style.display = st.open ? 'block' : 'none';
+  }
+  function setTab(name) {
+    var t = document.querySelectorAll('.cd-tab'), p = document.querySelectorAll('.cd-page');
+    for (var i = 0; i < t.length; i++) t[i].className = 'cd-tab' + (t[i].getAttribute('data-tab') === name ? ' on' : '');
+    for (var j = 0; j < p.length; j++) p[j].className = 'cd-page' + (p[j].getAttribute('data-page') === name ? ' on' : '');
+    if (name === 'mem') pollMem();
+  }
+  $('cd-fab').addEventListener('click', function () { st.open = !st.open; save(); syncUI(); });
+  $('cd-panel').addEventListener('click', function (e) {
+    var b = e.target; if (b.tagName !== 'BUTTON') b = b.parentNode;
+    if (!b || b.tagName !== 'BUTTON') return;
+    var v;
+    if ((v = b.getAttribute('data-tab')))    { setTab(v); return; }
+    if ((v = b.getAttribute('data-key')))    { press(parseInt(v, 16)); return; }
+    if ((v = b.getAttribute('data-combo')))  { combo(v.split(',').map(function (x) { return parseInt(x, 16); })); return; }
+    if ((v = b.getAttribute('data-sticky'))) { sticky[v] = !sticky[v]; refreshSticky(); return; }
+    if ((v = b.getAttribute('data-fn')) && FN[v]) FN[v]();
+  });
+  $('cd-text').addEventListener('keydown', function (e) { if (e.keyCode === 13) { e.preventDefault(); FN.sendEnter(); } });
+
+  document.title = 'CloudDesk';
+  syncUI();
+})();
+</script>
