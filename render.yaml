@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: clouddesk
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /vnc.html
+    autoDeploy: true
+    envVars:
+      - key: VNC_PASSWORD
+        value: ""                  # مفتوح: لا كلمة مرور VNC (راحة على iPad)
+      - key: ACCESS_TOKEN
+        generateValue: true        # رمز في الرابط بلا كتابة — احذف هذين السطرين لوضع مفتوح 100%
+      - key: SCREEN_WIDTH
+        value: "1024"
+      - key: SCREEN_HEIGHT
+        value: "768"
+      - key: SCREEN_DEPTH
+        value: "16"
+      - key: START_URL
+        value: https://www.google.com
+      - key: TZ
+        value: Africa/Algiers
+      - key: BRAVE_LANG
+        value: ar
+      - key: BRAVE_HEAP_MB
+        value: "128"
+      - key: BRAVE_CACHE_MB
+        value: "200"
+      - key: ENABLE_CLIPBOARD
+        value: "false"
+      - key: MEM_LIMIT_MB
+        value: "512"
+      - key: STATE_REMOTE
+        value: ""                  # مثال: cloud:clouddesk-state (يتطلب متغيرات RCLONE_CONFIG_CLOUD_* أدناه)

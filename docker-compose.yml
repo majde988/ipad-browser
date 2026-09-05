@@ -1,0 +1,31 @@
+services:
+  clouddesk:
+    build: .
+    image: clouddesk:2.1
+    container_name: clouddesk
+    ports:
+      - "10000:10000"
+    environment:
+      VNC_PASSWORD: ""
+      ACCESS_TOKEN: ""               # فارغ = مفتوح للتجربة المحلية
+      SCREEN_WIDTH: 1024
+      SCREEN_HEIGHT: 768
+      SCREEN_DEPTH: 16
+      START_URL: https://www.google.com
+      TZ: Africa/Algiers
+      BRAVE_LANG: ar
+      ENABLE_CLIPBOARD: "false"
+      MEM_LIMIT_MB: 512
+    volumes:
+      - downloads:/home/desk/Downloads
+      - brave-profile:/home/desk/.config/BraveSoftware
+    shm_size: 256m
+    mem_limit: 512m
+    cpus: 1.5
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  downloads:
+  brave-profile:

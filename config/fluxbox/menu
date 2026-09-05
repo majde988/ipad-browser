@@ -1,0 +1,19 @@
+[begin] (CloudDesk)
+  [exec] (🦁 Brave Browser)   {brave-browser --no-sandbox}
+  [exec] (📝 Geany Editor)    {geany}
+  [exec] (📁 File Manager)    {pcmanfm ~/Desktop}
+  [exec] (💻 Terminal)        {lxterminal}
+  [separator]
+  [submenu] (🧠 Memory)
+    [exec] (🧹 GC now)           {touch /run/clouddesk/cmd/gc}
+    [exec] (💤 Park background)  {touch /run/clouddesk/cmd/park}
+    [exec] (↩ Restore parked)    {touch /run/clouddesk/cmd/restore}
+  [end]
+  [submenu] (🪟 Windows)
+    [exec] (Show Desktop) {fluxbox-remote ShowDesktop}
+    [workspaces] (Workspaces)
+  [end]
+  [separator]
+  [reconfig] (Reload Config)
+  [restart]  (Restart Desktop)
+[end]
