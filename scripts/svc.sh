@@ -23,10 +23,10 @@ case "${1:-}" in
     exec fluxbox
     ;;
 
-  x11vnc)
+    x11vnc)
     wait_for_x
     args=(-display "$DISPLAY" -forever -shared -localhost -rfbport "$VNC_PORT"
-          -xkb -noxrecord -nobell -wait 20 -defer 20 -o /dev/stdout)
+          -xkb -noxrecord -nobell -wait 20 -defer 20 -noxdamage -q)
     if [ "${ENABLE_CLIPBOARD}" != "true" ]; then args+=(-noclipboard -nosel); fi
     if [ -s /run/clouddesk/vncpasswd ]; then args+=(-rfbauth /run/clouddesk/vncpasswd)
     else args+=(-nopw); fi
