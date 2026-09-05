@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 ARG NOVNC_VERSION=0.6.2
 ARG APP_USER=desk
